@@ -1,19 +1,19 @@
 {
-  "name": "github-activity-readme",
-  "version": "0.5.0",
-  "description": "Updates README with the recent GitHub activity of a user",
-  "main": "index.js",
-  "keywords": [],
-  "author": "James George",
-  "license": "MIT",
-  "scripts": {
-    "build": "ncc build index.js -o dist"
-  },
-  "dependencies": {
-    "@actions/core": "^2.0.1",
-    "@actions/github": "^6.0.1"
-  },
-  "devDependencies": {
-    "@vercel/ncc": "^0.38.4"
-  }
+    "name": "github-activity-readme",
+    "version": "0.5.0",
+    "description": "Updates README with the recent GitHub activity of a user",
+    "main": "index.js",
+    "keywords": [],
+    "author": "James George",
+    "license": "MIT",
+    "scripts": {
+        "build": "ncc build index.js -o dist"
+    },
+    "dependencies": {
+        "@actions/core": "^2.0.1",
+        "@actions/github": "^6.0.1"
+    },
+    "devDependencies": {
+        "@vercel/ncc": "^0.38.4"
+    }
 }
