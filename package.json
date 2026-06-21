@@ -7,8 +7,6 @@
   "author": "James George",
   "license": "MIT",
   "scripts": {
-    "format:check": "prettier --check index.js",
-    "format": "prettier --write index.js",
     "build": "ncc build index.js -o dist"
   },
   "dependencies": {
@@ -16,7 +14,6 @@
     "@actions/github": "^6.0.1"
   },
   "devDependencies": {
-    "@vercel/ncc": "^0.38.4",
-    "prettier": "^3.7.4"
+    "@vercel/ncc": "^0.38.4"
   }
 }
