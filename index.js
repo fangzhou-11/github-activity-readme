@@ -30,26 +30,121 @@ const capitalize = (str) => str.slice(0, 1).toUpperCase() + str.slice(1);
  */
 const toUrlFormat = (item) => {
   if (typeof item !== "object") {
-    return `[${item}](https://github.com/${item})`;
-  }
-  if (Object.hasOwnProperty.call(item.payload, "comment")) {
-    return `[#${item.payload.issue.number}](${item.payload.comment.html_url})`;
-  }
-  if (Object.hasOwnProperty.call(item.payload, "issue")) {
-    return `[#${item.payload.issue.number}](${item.payload.issue.html_url})`;
-  }
-  if (Object.hasOwnProperty.call(item.payload, "pull_request")) {
-    // GitHub Events API doesn't include html_url in pull_request object
-    // We need to construct it from repo name and PR number
-    const prNumber = item.payload.pull_request.number;
-    const repoName = item.repo.name;
-    return `[#${prNumber}](https://github.com/${repoName}/pull/${prNumber})`;
+    return `[\`${item}\`](https://github.com/${item})`;
   }
 
-  if (Object.hasOwnProperty.call(item.payload, "release")) {
-    const release = item.payload.release.name || item.payload.release.tag_name;
-    return `[${release}](${item.payload.release.html_url})`;
+  const payload = item.payload || {};
+  const repoName = item.repo && item.repo.name;
+
+  // Comment (issue/PR/commit/review comment)
+  if (Object.prototype.hasOwnProperty.call(payload, "comment")) {
+    const c = payload.comment;
+    if (payload.issue && payload.issue.number) {
+      return `[\`#${payload.issue.number}\`](${c.html_url || c.url})`;
+    }
+    if (payload.pull_request && payload.pull_request.number) {
+      return `[\`#${payload.pull_request.number}\`](${c.html_url || c.url})`;
+    }
+    if (c && c.commit_id) {
+      const short = c.commit_id.slice(0, 7);
+      const url = c.html_url || `https://github.com/${repoName}/commit/${c.commit_id}`;
+      return `[\`${short}\`](${url})`;
+    }
+    if (c && c.html_url) {
+      return `[\`comment\`](${c.html_url})`;
+    }
   }
+
+  // Pull request review (review object)
+  if (Object.prototype.hasOwnProperty.call(payload, "review") && payload.review) {
+    const r = payload.review;
+    if (r.html_url) return `[\`review\`](${r.html_url})`;
+    // fallback to PR link when available
+    if (payload.pull_request && payload.pull_request.number) {
+      const prNumber = payload.pull_request.number;
+      const repoRef = repoName || (payload.pull_request.base && payload.pull_request.base.repo && payload.pull_request.base.repo.full_name);
+      return `[\`review\`](${`https://github.com/${repoRef}/pull/${prNumber}`})`;
+    }
+  }
+
+  // Issue
+  if (Object.prototype.hasOwnProperty.call(payload, "issue") && payload.issue && payload.issue.html_url) {
+    return `[\`#${payload.issue.number}\`](${payload.issue.html_url})`;
+  }
+
+  // Pull request
+  if (Object.prototype.hasOwnProperty.call(payload, "pull_request") && payload.pull_request) {
+    const prNumber = payload.pull_request.number;
+    if (payload.pull_request.html_url) {
+      return `[\`#${prNumber}\`](${payload.pull_request.html_url})`;
+    }
+    const repoRef = repoName || (payload.pull_request.base && payload.pull_request.base.repo && payload.pull_request.base.repo.full_name);
+    return `[\`#${prNumber}\`](https://github.com/${repoRef}/pull/${prNumber})`;
+  }
+
+  // Release
+  if (Object.prototype.hasOwnProperty.call(payload, "release") && payload.release) {
+    const release = payload.release.name || payload.release.tag_name;
+    return `[\`${release}\`](${payload.release.html_url})`;
+  }
+
+  // Fork
+  if (Object.prototype.hasOwnProperty.call(payload, "forkee") && payload.forkee && payload.forkee.html_url) {
+    const name = payload.forkee.full_name || payload.forkee.name;
+    return `[\`${name}\`](${payload.forkee.html_url})`;
+  }
+
+  // Gist
+  if (Object.prototype.hasOwnProperty.call(payload, "gist") && payload.gist && payload.gist.html_url) {
+    return `[\`gist\`](${payload.gist.html_url})`;
+  }
+
+  // Deployment - prefer html_url when available
+  if (Object.prototype.hasOwnProperty.call(payload, "deployment") && payload.deployment) {
+    const d = payload.deployment;
+    if (d.html_url) return `[\`deployment\`](${d.html_url})`;
+    if (d.statuses_url) return `[\`deployment\`](${d.statuses_url})`;
+    if (d.url) return `[\`deployment\`](${d.url})`;
+  }
+
+  // Workflow run
+  if (Object.prototype.hasOwnProperty.call(payload, "workflow_run") && payload.workflow_run) {
+    const w = payload.workflow_run;
+    if (w.html_url) return `[\`workflow run\`](${w.html_url})`;
+    if (w.url) return `[\`workflow run\`](${w.url})`;
+  }
+
+  // Check run
+  if (Object.prototype.hasOwnProperty.call(payload, "check_run") && payload.check_run) {
+    const c = payload.check_run;
+    if (c.html_url) return `[\`check run\`](${c.html_url})`;
+    if (c.url) return `[\`check run\`](${c.url})`;
+  }
+
+  // Discussion
+  if (Object.prototype.hasOwnProperty.call(payload, "discussion") && payload.discussion && payload.discussion.html_url) {
+    return `[\`discussion\`](${payload.discussion.html_url})`;
+  }
+
+  // Create / Delete refs (branch/tag)
+  if (Object.prototype.hasOwnProperty.call(payload, "ref") && Object.prototype.hasOwnProperty.call(payload, "ref_type") && repoName) {
+    const ref = payload.ref;
+    const type = payload.ref_type;
+    if (type === "branch") {
+      return `[\`${ref}\`](https://github.com/${repoName}/tree/${ref})`;
+    }
+    if (type === "tag") {
+      return `[\`${ref}\`](https://github.com/${repoName}/releases/tag/${ref})`;
+    }
+    return `[\`${ref}\`](${ref})`;
+  }
+
+  // Fallback to repo link when possible
+  if (repoName) {
+    return `[\`${repoName}\`](https://github.com/${repoName})`;
+  }
+
+  return "[unknown](https://github.com)";
 };
 
 /**
@@ -80,12 +175,22 @@ const exec = (cmd, args = []) =>
 
     app.on("close", (code) => {
       if (code !== 0 && !stdout.includes("nothing to commit")) {
-        return reject(new Error(`Exit code: ${code}\n${stdout}`));
+        return reject(
+          new Error(
+            `Command: ${cmd} ${args.join(" ")}\nExit code: ${code}\nstdout:\n${stdout}\nstderr:\n${stderr}`,
+          ),
+        );
       }
       return resolve(stdout);
     });
 
-    app.on("error", () => reject(new Error(`Exit code: ${code}\n${stderr}`)));
+    app.on("error", (err) =>
+      reject(
+        new Error(
+          `Command: ${cmd} ${args.join(" ")}\nError: ${err && err.message}\nstdout:\n${stdout}\nstderr:\n${stderr}`,
+        ),
+      ),
+    );
   });
 
 /**
@@ -123,8 +228,8 @@ const createEmptyCommit = async () => {
     (new Date() - commitDate) / (1000 * 60 * 60 * 24),
   );
 
-  core.debug(`Last commit date: ${commitDate}`);
-  core.debug(`Difference in days: ${diffInDays}`);
+  core.info(`Last commit date: ${commitDate}`);
+  core.info(`Difference in days: ${diffInDays}`);
 
   if (diffInDays > 50) {
     core.info("Create empty commit to keep workflow active");
@@ -186,6 +291,100 @@ const serializers = {
       item,
     )} in ${toUrlFormat(item.repo.name)}`;
   },
+  PushEvent: (item) => {
+    const repoName = item.repo && item.repo.name;
+    const ref = item.payload && item.payload.ref ? item.payload.ref.replace("refs/heads/", "") : "";
+
+    const commits = (item.payload && item.payload.commits) || [];
+    let headSha = (item.payload && (item.payload.after || item.payload.head)) || (item.payload && item.payload.head_commit && (item.payload.head_commit.id || item.payload.head_commit.sha));
+    if (!headSha && commits.length) {
+      const last = commits[commits.length - 1];
+      headSha = last && (last.sha || last.id || last.commit_id || last.sha1);
+    }
+
+    const short = headSha ? headSha.slice(0, 7) : "";
+
+    // Build markdown links with inline-code link text when possible
+    const shaLink = headSha && repoName ? `[\`${short}\`](https://github.com/${repoName}/commit/${headSha})` : (short ? `\`${short}\`` : "");
+    const refLink = ref && repoName ? `[\`${ref}\`](https://github.com/${repoName}/tree/${ref})` : (ref ? `\`${ref}\`` : "");
+    const repoLink = repoName ? toUrlFormat(repoName) : "";
+
+    let base = `📦 Pushed ${shaLink || (short ? `\`${short}\`` : "")}`;
+    if (ref) base += ` to ${refLink || ref}`;
+    if (repoName) base += ` in ${repoLink}`;
+    return base;
+  },
+  CommitCommentEvent: (item) => {
+    const repoName = item.repo.name;
+    const comment = item.payload && item.payload.comment;
+    if (comment) {
+      const sha = comment.commit_id ? comment.commit_id.slice(0, 7) : "";
+      const url = comment.html_url || `https://github.com/${repoName}`;
+      return `📝 Commented on commit [\`${sha}\`](${url}) in ${toUrlFormat(repoName)}`;
+    }
+    return `📝 Commented on a commit in ${toUrlFormat(repoName)}`;
+  },
+  CreateEvent: (item) => {
+    const repoName = item.repo.name;
+    const refType = item.payload && item.payload.ref_type;
+    const ref = item.payload && item.payload.ref;
+    if (refType && ref) {
+      return `🆕 Created ${refType} ${ref} in ${toUrlFormat(repoName)}`;
+    }
+    return `🆕 Created in ${toUrlFormat(repoName)}`;
+  },
+  ForkEvent: (item) => {
+    const repoName = item.repo && item.repo.name;
+    const forkee = item.payload && item.payload.forkee;
+    if (forkee && forkee.html_url) {
+      const name = forkee.full_name || forkee.name || forkee.fullName || repoName;
+      return `🍴 Forked [\`${name}\`](${forkee.html_url})`;
+    }
+    return `🍴 Forked ${toUrlFormat(repoName)}`;
+  },
+  WatchEvent: (item) => {
+    const repoName = item.repo.name;
+    return `⭐ Starred ${toUrlFormat(repoName)}`;
+  },
+  FollowEvent: (item) => {
+    const target = item.payload && item.payload.target && item.payload.target.login;
+    return `👥 Followed ${toUrlFormat(target || "")}`;
+  },
+  PullRequestReviewEvent: (item) => {
+    const repoName = item.repo.name;
+    const actionText = item.payload && item.payload.action ? capitalize(item.payload.action) : "Reviewed";
+    return `✅ ${actionText} review for PR ${toUrlFormat(item)} in ${toUrlFormat(repoName)}`;
+  },
+  PullRequestReviewCommentEvent: (item) => {
+    return `💬 Commented on PR review ${toUrlFormat(item)} in ${toUrlFormat(item.repo.name)}`;
+  },
+  GistEvent: (item) => {
+    const action = item.payload && item.payload.action ? capitalize(item.payload.action) : "";
+    const gist = item.payload && item.payload.gist;
+    if (gist && gist.html_url) {
+      return `📄 ${action} gist [\`gist\`](${gist.html_url})`;
+    }
+    return `📄 ${action} gist`;
+  },
+  MemberEvent: (item) => {
+    const repoName = item.repo.name;
+    const member = item.payload && item.payload.member && item.payload.member.login;
+    return `🔗 ${capitalize(item.payload.action || "changed")} collaborator ${toUrlFormat(member || "")} in ${toUrlFormat(repoName)}`;
+  },
+  DeleteEvent: (item) => {
+    const repoName = item.repo.name;
+    const refType = item.payload && item.payload.ref_type;
+    const ref = item.payload && item.payload.ref;
+    return `🗑️ Deleted ${refType || "ref"} ${ref || ""} in ${toUrlFormat(repoName)}`;
+  },
+  DeploymentEvent: (item) => {
+    const repoName = item.repo.name;
+    const env = item.payload && item.payload.deployment && item.payload.deployment.environment;
+    return `🚀 Created deployment${env ? ` (${env})` : ""} in ${toUrlFormat(repoName)}`;
+  },
+  PublicEvent: (item) => {
+    return `🌍 Made ${toUrlFormat(item.repo.name)} public`;
+  },
 };
 
 const run = async () => {
@@ -199,27 +398,50 @@ const run = async () => {
 
     const octokit = getOctokit(token);
 
-    // Get the user's public events
-    core.debug(`Getting activity for ${GH_USERNAME}`);
-    const events = await octokit.rest.activity.listPublicEventsForUser({
-      username: GH_USERNAME,
-      per_page: 100,
-    });
-    core.debug(
-      `Activity for ${GH_USERNAME}, ${events.data.length} events found.`,
+    // Get the user's events
+    core.info(`Getting activity for ${GH_USERNAME}`);
+
+    let events;
+    try {
+      const authUser = await octokit.rest.users.getAuthenticated();
+      const authLogin = authUser?.data?.login;
+      core.info(`Authenticated as ${authLogin}`);
+      if (authLogin && authLogin.toLowerCase() === GH_USERNAME.toLowerCase()) {
+        core.info("Fetching authenticated events");
+        events = await octokit.rest.activity.listEventsForAuthenticatedUser({
+          username: GH_USERNAME,
+          per_page: 100
+        });
+      } else {
+        core.info("Fetching public events");
+        events = await octokit.rest.activity.listPublicEventsForUser({
+          username: GH_USERNAME,
+          per_page: 100,
+        });
+      }
+    } catch (e) {
+      core.info(`Auth check failed: ${e.message}`);
+      core.info('Falling back to public events');
+      events = await octokit.rest.activity.listPublicEventsForUser({
+        username: GH_USERNAME,
+        per_page: 100,
+      });
+    }
+
+    core.info(`Activity for ${GH_USERNAME}, ${events.data.length} events found.`);
+
+    const maxLines = parseInt(MAX_LINES, 10) || 5;
+
+    const filtered = events.data.filter(
+      (event) => serializers.hasOwnProperty(event.type) && FILTER_EVENTS.includes(event.type),
     );
 
-    const content = events.data
-      // Filter out any boring activity
-      .filter(
-        (event) =>
-          serializers.hasOwnProperty(event.type) &&
-          FILTER_EVENTS.includes(event.type),
-      )
-      // We only have five lines to work with
-      .slice(0, MAX_LINES)
-      // Call the serializer to construct a string
-      .map((item) => serializers[item.type](item));
+    const limited = filtered.slice(0, maxLines);
+
+    // Call the serializer (supports async serializers) to construct strings
+    const content = await Promise.all(
+      limited.map((item) => Promise.resolve(serializers[item.type](item, octokit))),
+    );
 
     const readmeContent = fs
       .readFileSync(`./${TARGET_FILE}`, "utf-8")
