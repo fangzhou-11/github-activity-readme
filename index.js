@@ -422,22 +422,10 @@ const run = async () => {
         } catch (e) {
             core.info(`Auth check failed: ${e.message}`);
             core.info('Falling back to public events');
-            try {
-                events = await octokit.rest.activity.listPublicEventsForUser({
-                    username: GH_USERNAME,
-                    per_page: 100,
-                });
-            } catch (fallbackError) {
-                core.info(`Authenticated fallback failed: ${fallbackError.message}`);
-                core.info('Fetching public events using an unauthenticated client');
-                const { Octokit } = require("@octokit/core");
-                const unauthenticatedOctokit = new Octokit();
-                const response = await unauthenticatedOctokit.request("GET /users/{username}/events/public", {
-                    username: GH_USERNAME,
-                    per_page: 100,
-                });
-                events = { data: response.data };
-            }
+            events = await octokit.rest.activity.listPublicEventsForUser({
+                username: GH_USERNAME,
+                per_page: 100,
+            });
         }
 
         core.info(`Activity for ${GH_USERNAME}, ${events.data.length} events found.`);
