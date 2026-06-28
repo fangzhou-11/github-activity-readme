@@ -390,12 +390,12 @@ const serializers = {
 
 const run = async () => {
     try {
-        const token = process.env.GITHUB_TOKEN || GITHUB_TOKEN;
+        const token = process.env.GH_TOKEN || GITHUB_TOKEN;
 
         if (!token) {
             core.setFailed("GITHUB_TOKEN is required to fetch activity.");
             return;
-        }
+        }}
 
         const octokit = getOctokit(token);
 
