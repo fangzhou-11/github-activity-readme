@@ -395,7 +395,7 @@ const run = async () => {
         if (!token) {
             core.setFailed("GITHUB_TOKEN is required to fetch activity.");
             return;
-        }}
+        }
 
         const octokit = getOctokit(token);
 
