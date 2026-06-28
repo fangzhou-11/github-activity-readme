@@ -12,6 +12,7 @@ const MAX_LINES = core.getInput("MAX_LINES");
 const TARGET_FILE = core.getInput("TARGET_FILE");
 const EMPTY_COMMIT_MSG = core.getInput("EMPTY_COMMIT_MSG");
 const FILTER_EVENTS = core.getInput("FILTER_EVENTS");
+const GITHUB_TOKEN = core.getInput("GH_TOKEN");
 
 /**
  * Returns the sentence case representation
@@ -389,7 +390,7 @@ const serializers = {
 
 const run = async () => {
     try {
-        const token = process.env.GITHUB_TOKEN;
+        const token = process.env.GITHUB_TOKEN || GITHUB_TOKEN;
 
         if (!token) {
             core.setFailed("GITHUB_TOKEN is required to fetch activity.");
