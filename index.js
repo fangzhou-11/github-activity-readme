@@ -390,7 +390,7 @@ const serializers = {
 
 const run = async () => {
     try {
-        const token = process.env.GH_TOKEN || GITHUB_TOKEN;
+        const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || process.env.ACCESS_TOKEN || GITHUB_TOKEN;
 
         if (!token) {
             core.setFailed("GITHUB_TOKEN is required to fetch activity.");
